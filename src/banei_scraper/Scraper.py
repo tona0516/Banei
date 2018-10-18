@@ -4,8 +4,8 @@ import csv
 
 from .APIClient import APIClient
 from .Config import Config
-from .ParseException import ParseException
-from .APIClientException import APIClientException
+from .exception import APIClientException
+from .exception import ParseException
 
 class Scraper:
     def __init__(self, race_date: str, race_round: str, logger):

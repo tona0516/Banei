@@ -3,7 +3,7 @@ from urllib import error
 from socket import timeout
 from bs4 import BeautifulSoup
 
-from .APIClientException import APIClientException
+from .exception import APIClientException
 
 class APIClient:
     @classmethod
