@@ -5,15 +5,18 @@
 python 3.7.0
 
 # Commands
-- 新しい環境を作成する
-`python -m venv <venv名>`
-- アクティベート
-`source <venv名>/bin/activate`
-- ディアクティベート
-`deactivate`
+- venvで環境を切り分ける場合
+  1. 新しい環境を作成する
+    - `python -m venv <venv名>`
+  1. アクティベート
+    - `source <venv名>/bin/activate`
+  1. ディアクティベート
+    - `deactivate`
 - 要求ライブラリの保存
-`pip freeze > package.txt`
+  - `pip freeze > package.txt`
 - 要求ライブラリのインストール
-`pip install -r package.txt`
+  - `pip install -r package.txt`
+- 型チェック
+  - `mypy src/`
 - 実行
-`python src/Main.py`
+  - `python src/Main.py`
