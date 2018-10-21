@@ -1,3 +1,3 @@
-class ParseException(Exception):
+class ScraperException(Exception):
     def __init__(self, message):
         self.message = message

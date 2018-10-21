@@ -3,7 +3,7 @@ from urllib import error
 from socket import timeout
 from bs4 import BeautifulSoup
 
-from .exception import APIClientException
+from .exception import ScraperException
 
 class APIClient:
     @classmethod
@@ -13,8 +13,8 @@ class APIClient:
             html = f.read().decode('utf-8')
             soup = BeautifulSoup(html, 'html.parser')
         except Exception:
-            raise APIClientException('Failed to fetch soup.')
+            raise ScraperException('message=\"Failed to fetch soup.\", url=\"' + url + '\"')
         else:
             if soup.find('p', class_='leadNoData'):
-                raise APIClientException('No data in the soup')
+                raise ScraperException('message=\"No data in the soup.\", url=\"' + url + '\"')
             return soup

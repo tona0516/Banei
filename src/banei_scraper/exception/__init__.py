@@ -1,2 +1,1 @@
-from .APIClientException import APIClientException
-from .ParseException import ParseException
+from .ScraperException import ScraperException

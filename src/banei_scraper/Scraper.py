@@ -1,34 +1,47 @@
 import re
 import datetime
-import csv
+from typing import List, Dict, Tuple
 
 from .APIClient import APIClient
 from .Config import Config
-from .exception import APIClientException
-from .exception import ParseException
+from .Output import Output
+from .FileType import FileType
+from .exception.ScraperException import ScraperException
 
-def scrape(race_date, race_round):
-    # URLを生成
-    racecard_url: str = Config.URL_RACECARD + race_date + "03000000" + str(race_round).zfill(2)
-    odds_url: str = Config.URL_ODDS + race_date + "03000000" + str(race_round).zfill(2)
-    record_url: str = Config.URL_RECORD + race_date + "03000000" + str(race_round).zfill(2)
+def scrape(race_date: str, race_round: int) -> List:
+    try:
+        # URLを生成
+        racecard_url = Config.URL_RACECARD + race_date + "03000000" + str(race_round).zfill(2)
+        odds_url = Config.URL_ODDS + race_date + "03000000" + str(race_round).zfill(2)
+        record_url = Config.URL_RECORD + race_date + "03000000" + str(race_round).zfill(2)
 
-    # 各ページをスクレイピング
-    race_dict, racecard_list, prize = __scrape_racecard(racecard_url)
-    odds_list = __scrape_odds(odds_url)
-    record_list = __scrape_record(record_url)
+        # 各ページをスクレイピング
+        race_dict, racecard_list, prize = __scrape_racecard(racecard_url)
+        odds_list = __scrape_odds(odds_url)
+        record_list = __scrape_record(record_url)
+        
+        # 各データを統合
+        result_list = __merge(race_dict, racecard_list, odds_list, record_list, prize)
+    except Exception as e:
+        raise ScraperException(e.args)
+    else:
+        return result_list
+
+def output_to_file(result_list: List, filepath: str, filetype=FileType.CSV):
+    if filetype == FileType.CSV:
+        Output.output_to_csv(result_list, filepath)
+        return
     
-    # 各データを統合
-    result_list = __merge(race_dict, racecard_list, odds_list, record_list, prize)
-    
-    return result_list
+    if filetype == FileType.JSON:
+        Output.output_to_json(result_list, filepath)
+        return
 
-def __scrape_racecard(url):
+def __scrape_racecard(url: str) -> Tuple[Dict, List, List]:
     soup = APIClient.get_soup(url)
 
     div = soup.find('div', class_="raceNote")
     if div is None:
-        raise ParseException('message=\"No Match class namaed raceNote\", url=\"' + url + '\"')
+        raise ScraperException('message=\"No Match class namaed raceNote\", url=\"' + url + '\"')
 
     race_dict = {
         "レース名": div.find("h2").text,
@@ -42,7 +55,7 @@ def __scrape_racecard(url):
 
     table = soup.find('tbody', class_='raceCard')
     if table is None:
-        raise ParseException('message=\"No Match class namaed raceCard\", url=\"' + url + '\"')
+        raise ScraperException('message=\"No Match class namaed raceCard\", url=\"' + url + '\"')
 
     tr = table.find_all('tr', class_=re.compile("^box"))
 
@@ -69,12 +82,12 @@ def __scrape_racecard(url):
 
     return race_dict, racecard_list, prize
 
-def __scrape_odds(url):
+def __scrape_odds(url: str) -> List:
     soup = APIClient.get_soup(url)
 
     table = soup.find('tbody', class_='single selectWrap')
     if table is None:
-        raise ParseException('message=\"No Match class namaed single selectWrap\", url=\"' + url + '\"')
+        raise ScraperException('message=\"No Match class namaed single selectWrap\", url=\"' + url + '\"')
 
     tr = table.find_all('tr', class_=re.compile("^box"))
 
@@ -97,12 +110,12 @@ def __scrape_odds(url):
 
     return odds_list
 
-def __scrape_record(url):
+def __scrape_record(url: str) -> List:
     soup = APIClient.get_soup(url)
 
     table = soup.find('tbody', class_='record')
     if table is None:
-        raise ParseException('message=\"No Match class namaed record\", url=\"' + url + '\"')
+        raise ScraperException('message=\"No Match class namaed record\", url=\"' + url + '\"')
 
     tr = table.find_all('tr', class_=re.compile("^box"))
     
@@ -125,91 +138,89 @@ def __scrape_record(url):
 
     return odds_list
 
-def __merge(race_dict, racecard_list, odds_list, record_list, prize):
+def __merge(race_dict: Dict, racecard_list: List, odds_list: List, record_list: List, prize: List) -> List:
     output_list = []
     for (racecard, odds, record) in zip(racecard_list, odds_list, record_list):
-        dict = {}
-        dict.update(race_dict)
-        dict.update(racecard)
-        dict.update(odds)
-        dict.update(record)
+        merged_dict = {}
+        merged_dict.update(race_dict)
+        merged_dict.update(racecard)
+        merged_dict.update(odds)
+        merged_dict.update(record)
 
-        # 賞金の計算
-        if __can_convert_to_int(dict["着順"]) and int(dict["着順"]) - 1 < len(prize):
-            dict["賞金"] = prize[int(dict["着順"]) - 1]
-        else:
-            dict["賞金"] = "0"
-        dict = __process_dictionary(dict)
-        output_list.append(dict)
+        merged_dict = __process_dictionary(merged_dict, prize)
+        output_list.append(merged_dict)
     return output_list
 
-# def write_to_csv(file_path):
-#     if result_list:
-#         with open(file_path, "w") as f:
-#             header = result_list[0].keys()
-#             writer = csv.DictWriter(f, fieldnames=header, delimiter=',')
-#             writer.writeheader()
-#             for row in result_list:
-#                 writer.writerow(row)
-#             logger.debug("outputted file >> " + file_path)
-#     else:
-#         logger.debug("no result >> " + file_path)
+def __process_dictionary(merged_dict: Dict, prize: List) -> Dict:
+    """
+    各カラムの値を修正する
+    """
+    # 賞金の計算
+    merged_dict["賞金"] = __calculate_prize(merged_dict, prize)
 
-#     return self
+    # 「%」を削除
+    merged_dict["勝率"] = merged_dict["勝率"].replace("%", "")
+    merged_dict["3着内率"] = merged_dict["3着内率"].replace("%", "")
 
-def __process_dictionary(dict):
-    dict["勝率"] = dict["勝率"].replace("%", "")
-    dict["3着内率"] = dict["3着内率"].replace("%", "")
-
-    weight = dict.pop("連対時馬体重")
+    # 連対時馬体重の計算
+    weight = merged_dict.pop("連対時馬体重")
     if "|" in weight:
         weight = weight.split("|")
-        dict["連対時馬体重(下限)"] = weight[0]
-        dict["連対時馬体重(上限)"] = weight[1]
+        merged_dict["連対時馬体重(下限)"] = weight[0]
+        merged_dict["連対時馬体重(上限)"] = weight[1]
     else:
-        dict["連対時馬体重(下限)"] = "-"
-        dict["連対時馬体重(上限)"] = "-"
+        merged_dict["連対時馬体重(下限)"] = "-"
+        merged_dict["連対時馬体重(上限)"] = "-"
 
-    weight_updown_text = dict.pop("馬体重増減")
+    # 体重と増減差の計算
+    weight_updown_text = merged_dict.pop("馬体重増減")
     if "+" in weight_updown_text:
         weight_updown = weight_updown_text.split("+")
-        dict["馬体重(前走)"] = weight_updown[0]
-        dict["体重増減差"] = weight_updown[1]
+        merged_dict["馬体重(前走)"] = weight_updown[0]
+        merged_dict["体重増減差"] = weight_updown[1]
     elif "-" in weight_updown_text:
         weight_updown = weight_updown_text.split("-")
-        dict["馬体重(前走)"] = weight_updown[0]
-        dict["体重増減差"] = "-" + weight_updown[1]
+        merged_dict["馬体重(前走)"] = weight_updown[0]
+        merged_dict["体重増減差"] = "-" + weight_updown[1]
     elif "±" in weight_updown_text:
         weight_updown = weight_updown_text.split("±")
-        dict["馬体重(前走)"] = weight_updown[0]
-        dict["体重増減差"] = weight_updown[1]
+        merged_dict["馬体重(前走)"] = weight_updown[0]
+        merged_dict["体重増減差"] = weight_updown[1]
     else:
-        dict["馬体重(前走)"] = "-"
-        dict["体重増減差"] = "-"
+        merged_dict["馬体重(前走)"] = "-"
+        merged_dict["体重増減差"] = "-"
 
-    race_date = dict["日付"]
+    # 日付の表記の修正
+    race_date = merged_dict["日付"]
     race_date_datetime = datetime.datetime.strptime(race_date, "%Y年%m月%d日")
-    dict["日付"] = race_date_datetime.strftime("%Y年%m月%d日")
+    merged_dict["日付"] = race_date_datetime.strftime("%Y年%m月%d日")
 
-    birthday = dict["誕生日"]
+    # 誕生日の日付を修正
+    birthday = merged_dict["誕生日"]
     birthday_datetime = datetime.datetime.strptime(birthday, "%Y/%m/%d生")
-    dict["誕生日"] = birthday_datetime.strftime("%Y年%m月%d日")
+    merged_dict["誕生日"] = birthday_datetime.strftime("%Y年%m月%d日")
 
-    gender_age_text = dict.pop("性齢")
-    dict["性"] = gender_age_text[0]
-    dict["年齢"] = gender_age_text[1:]
+    # 性別と年齢を別カラムに分割
+    gender_age_text = merged_dict.pop("性齢")
+    merged_dict["性"] = gender_age_text[0]
+    merged_dict["年齢"] = gender_age_text[1:]
 
-    dict["単勝オッズ"] = dict.pop("単勝オッズ")
-    odds_place = dict.pop("複勝オッズ").split(" - ")
+    # オッズの計算
+    merged_dict["単勝オッズ"] = merged_dict.pop("単勝オッズ")
+    odds_place = merged_dict.pop("複勝オッズ").split(" - ")
     if len(odds_place) == 2:
-        dict["複勝オッズ(下限)"] = odds_place[0]
-        dict["複勝オッズ(上限)"] = odds_place[1]
+        merged_dict["複勝オッズ(下限)"] = odds_place[0]
+        merged_dict["複勝オッズ(上限)"] = odds_place[1]
     else:
-        dict["複勝オッズ(下限)"] = "-"
-        dict["複勝オッズ(上限)"] = "-"
+        merged_dict["複勝オッズ(下限)"] = "-"
+        merged_dict["複勝オッズ(上限)"] = "-"
 
-    return dict
+    return merged_dict
 
+def __calculate_prize(merged_dict: Dict, prize: List) -> int:
+    if __can_convert_to_int(merged_dict["着順"]) and int(merged_dict["着順"]) - 1 < len(prize):
+        return int(prize[int(merged_dict["着順"]) - 1])
+    return 0
 
 def __process_prize_text(text):
     prize_list = []
