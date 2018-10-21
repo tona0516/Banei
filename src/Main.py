@@ -53,7 +53,10 @@ def request_HTML(date, max_round=12):
             result_list = scr.scrape(formatted_date, i)
         except ScraperException as e:
             logger.error(e.message)
-            continue
+            if e.message in 'No data in the soup':
+                break
+            else:
+                continue
         else:
             scr.output_to_file(result_list, filepath)
             print("WRITE date: " + formatted_date + " round: " + str(i).zfill(2))
