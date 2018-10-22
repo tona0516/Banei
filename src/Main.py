@@ -13,31 +13,23 @@ exec_date = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 logger = logging.getLogger(exec_date + ".log")
 
 def write_all_result_to_csv(resource_dicpath, output_dicpath):
-    is_complete_write_header = False
     all_csv_path = sorted(glob.glob(resource_dicpath + '*.csv'))
     first_filename = os.path.basename(all_csv_path[0]).replace(".csv", "")
     last_filename = os.path.basename(all_csv_path[-1]).replace(".csv", "")
 
-    with open(output_dicpath + first_filename + ">>" + last_filename + ".csv", "w") as f1:
-        writer = csv.writer(f1, delimiter=',')
+    with open(output_dicpath + first_filename + ">>" + last_filename + ".csv", "w") as all_result_file:
+        writer = csv.writer(all_result_file, delimiter=',')
+
+        # ヘッダの書き込み
         header = get_header(resource_dicpath)
-        for file_path in all_csv_path:
-            print("write data >> " + file_path)
-            with open(file_path, "r") as f2:
-                reader = csv.reader(f2)
-                data = []
-                for row in reader:
-                    data.append(row)
+        writer.writerow(header)
 
-                if not is_complete_write_header:
-                    writer.writerow(header)
-                    is_complete_write_header = True
-
-                for i in range(1, len(data)):
-                    if len(header) == len(data[i]):
-                        writer.writerow(data[i])
-                    else:
-                        logger.error("not match row count: " + str(file_path))
+        # 値の書き込み
+        for filepath in all_csv_path:
+            with open(filepath, "r") as race_result_file:
+                reader = csv.reader(race_result_file)
+                data = [row for i, row in enumerate(reader) if i != 0]
+                [writer.writerow(row) for row in data]
 
 def request_HTML(date, max_round=12):
     formatted_date = datetime.date.strftime(date, "%Y%m%d")
