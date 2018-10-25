@@ -5,6 +5,7 @@ import multiprocessing
 import glob
 import logging
 import os
+import argparse
 
 from banei_scraper import Scraper as scr
 from banei_scraper.exception import ScraperException
@@ -93,14 +94,43 @@ def init_directories(resource_dicpath: str, output_dicpath: str, log_dicpath: st
     os.makedirs(output_dicpath, exist_ok=True)
     os.makedirs(log_dicpath, exist_ok=True)
 
-if __name__ == '__main__':
-    RESOURCE_DIC = "resource/"
-    OUTPUT_DIC = "output/"
-    LOG_DIC = "logs/"
-    MULTIPROCESSING_POOL = multiprocessing.cpu_count()
+def check_positive(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+    return ivalue
 
-    START_DATE = datetime.date(2010, 1, 1)
-    END_DATE = datetime.date.today()
+def check_date(s):
+    try:
+        return datetime.datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        msg = "Not a valid date: '{0}'.".format(s)
+        raise argparse.ArgumentTypeError(msg)
+
+def read_option():
+    parser = argparse.ArgumentParser(description='scraping data from Rakuten keiba')
+    
+    parser.add_argument('-s', '--startdate', type=check_date, default=datetime.date(2010, 1, 1), help="the start date - format YYYY-MM-DD (default: " + str(datetime.date(2010, 1, 1)) + ')')
+    parser.add_argument('-e', '--enddate', type=check_date, default=datetime.date.today(), help="the end date - format YYYY-MM-DD (default: " + str(datetime.date.today()) + ')')
+    parser.add_argument('-p', '--process', type=check_positive, default=multiprocessing.cpu_count(), help='the number of process using scraping data (default: ' + str(multiprocessing.cpu_count()) + ')')
+    parser.add_argument('-rd', '--resource_dir', type=str, default='resource/', help='the directory saved each race data (default: resource/)')
+    parser.add_argument('-od', '--output_dir', type=str, default='output/', help='the directory saved all race merged data (default: output/)')
+    parser.add_argument('-ld', '--log_dir', type=str, default='log/', help='the directory saved log file (default: log/)')
+    
+    args = parser.parse_args()
+
+    return args
+
+if __name__ == '__main__':
+    args = read_option()
+
+    RESOURCE_DIC = args.resource_dir
+    OUTPUT_DIC = args.output_dir
+    LOG_DIC = args.log_dir
+
+    MULTIPROCESSING_POOL = args.process
+    START_DATE = args.startdate
+    END_DATE = args.enddate
 
     # 保存ディレクトリの初期化
     init_directories(RESOURCE_DIC, OUTPUT_DIC, LOG_DIC)
