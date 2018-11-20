@@ -44,12 +44,21 @@ def __scrape_racecard(url: str) -> Tuple[Dict, List, List]:
     if div is None:
         raise ScraperException('message=\"No Match class namaed raceNote\", url=\"' + url + '\"')
 
+    race_name = div.find("h2").text
+    race_date = div.find("ul", class_="trackState").find("li").text
+    race_round = soup.find("div", class_="placeNumber").find("span", class_="num").text
+    try:
+        race_weather = div.find("ul", class_="trackState trackMainState").find_all("dd")[0].text
+        race_condition = div.find("ul", class_="trackState trackMainState").find_all("dd")[1].text.replace("%", "")
+    except IndexError:
+        race_weather = '-'
+        race_condition = '-'
     race_dict = {
-        "レース名": div.find("h2").text,
-        "日付": div.find("ul", class_="trackState").find("li").text,
-        "ラウンド": soup.find("div", class_="placeNumber").find("span", class_="num").text,
-        "天候": div.find("ul", class_="trackState trackMainState").find_all("dd")[0].text,
-        "馬場": div.find("ul", class_="trackState trackMainState").find_all("dd")[1].text.replace("%", "")
+        "レース名": race_name,
+        "日付": race_date,
+        "ラウンド": race_round,
+        "天候": race_weather,
+        "馬場": race_condition,
     }
 
     prizes = __extract_prizes(div.find("dl", class_="prizeMoney").find("ol").text)
@@ -197,8 +206,12 @@ def __fix(merged_dict: Dict) -> Dict:
 
     # 誕生日の日付を修正
     birthday = merged_dict["誕生日"]
-    birthday_datetime = datetime.datetime.strptime(birthday, "%Y/%m/%d生")
-    merged_dict["誕生日"] = birthday_datetime.strftime("%Y年%m月%d日")
+    try:
+        birthday_datetime = datetime.datetime.strptime(birthday, "%Y/%m/%d生")
+    except ValueError:
+        merged_dict["誕生日"] = '-'
+    else:
+        merged_dict["誕生日"] = birthday_datetime.strftime("%Y年%m月%d日")
 
     # 性別と年齢を別カラムに分割
     gender_age_text = merged_dict.pop("性齢")
