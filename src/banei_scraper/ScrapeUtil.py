@@ -1,7 +1,3 @@
-import re
-
-from .Config import Config
-
 class ScrapeUtil:
     @classmethod
     def extract_inner_text(cls, soup, class_name, tag_name='td'):

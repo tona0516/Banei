@@ -1,9 +1,8 @@
 from urllib import request
-from urllib import error
-from socket import timeout
 from bs4 import BeautifulSoup
 
 from .exception import ScraperException
+
 
 class APIClient:
     @classmethod

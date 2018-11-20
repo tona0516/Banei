@@ -9,6 +9,7 @@ from .FileType import FileType
 from .ScrapeUtil import ScrapeUtil
 from .exception.ScraperException import ScraperException
 
+
 def scrape(race_date: str, race_round: int) -> List:
     # URLを生成
     racecard_url = Config.URL_RACECARD + race_date + "03000000" + str(race_round).zfill(2)
@@ -25,6 +26,7 @@ def scrape(race_date: str, race_round: int) -> List:
 
     return result_list
 
+
 def output_to_file(result_list: List, filepath: str, filetype=FileType.CSV):
     if filetype == FileType.CSV:
         Output.output_to_csv(result_list, filepath)
@@ -33,6 +35,7 @@ def output_to_file(result_list: List, filepath: str, filetype=FileType.CSV):
     if filetype == FileType.JSON:
         Output.output_to_json(result_list, filepath)
         return
+
 
 def __scrape_racecard(url: str) -> Tuple[Dict, List, List]:
     soup = APIClient.get_soup(url)
@@ -79,6 +82,7 @@ def __scrape_racecard(url: str) -> Tuple[Dict, List, List]:
 
     return race_dict, racecard_list, prizes
 
+
 def __scrape_odds(url: str) -> List:
     soup = APIClient.get_soup(url)
 
@@ -105,6 +109,7 @@ def __scrape_odds(url: str) -> List:
         odds_list.append(result_dic)
 
     return odds_list
+
 
 def __scrape_record(url: str) -> List:
     soup = APIClient.get_soup(url)
@@ -133,6 +138,7 @@ def __scrape_record(url: str) -> List:
 
     return odds_list
 
+
 def __merge(race_dict: Dict, racecard_list: List, odds_list: List, record_list: List, prizes: List) -> List:
     output_list = []
     for (racecard, odds, record) in zip(racecard_list, odds_list, record_list):
@@ -146,6 +152,7 @@ def __merge(race_dict: Dict, racecard_list: List, odds_list: List, record_list: 
         merged_dict = __fix(merged_dict)
         output_list.append(merged_dict)
     return output_list
+
 
 def __fix(merged_dict: Dict) -> Dict:
     """
@@ -210,6 +217,7 @@ def __fix(merged_dict: Dict) -> Dict:
 
     return merged_dict
 
+
 def __get_prize(order: str, prizes: List) -> int:
     try:
         prize_index = int(order) - 1
@@ -221,6 +229,7 @@ def __get_prize(order: str, prizes: List) -> int:
         return 0
     else:
         return prize
+
 
 def __extract_prizes(text: str) -> List:
     return re.sub('[0-9]+着', '', text).replace('円', '').replace(',', '').split("\n")
