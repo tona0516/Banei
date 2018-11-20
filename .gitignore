@@ -4,5 +4,6 @@ __pycache__/
 .mypy_cache/
 resource/
 output/
-logs/
+.idea/
+log/
 develop/
