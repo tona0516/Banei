@@ -48,7 +48,7 @@ def request_html(date, max_round=12):
             result_list = scraper.scrape(formatted_date, i)
         except ScraperException as e:
             logger.error(e.message)
-            if e.message in 'No data in the soup':
+            if 'No data in the soup' in e.message:
                 break
             else:
                 continue
